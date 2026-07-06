@@ -1,0 +1,23 @@
+{
+  "name": "syncspace",
+  "version": "1.0.0",
+  "description": "> **Organize. Collaborate. Achieve.**",
+  "homepage": "https://github.com/rainanirmal/SyncSpace#readme",
+  "bugs": {
+    "url": "https://github.com/rainanirmal/SyncSpace/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rainanirmal/SyncSpace.git"
+  },
+  "license": "ISC",
+  "author": "Raina Nirmal",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "devDependencies": {
+    "prettier": "3.9.4"
+  }
+}

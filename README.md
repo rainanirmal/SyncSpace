@@ -18,33 +18,33 @@ This project is currently being developed as a full-stack application. The goal 
 
 **Backend**
 
-* Node.js
-* Express.js
+- Node.js
+- Express.js
 
 **Database**
 
-* MongoDB
-* Mongoose
+- MongoDB
+- Mongoose
 
-> *The frontend and additional technologies will be added as the project evolves.*
+> _The frontend and additional technologies will be added as the project evolves._
 
 ---
 
 ## ✨ Planned Features
 
-* User Authentication
-* Project Management
-* Task Management
-* Team Collaboration
-* Dashboard
-* Notifications
+- User Authentication
+- Project Management
+- Task Management
+- Team Collaboration
+- Dashboard
+- Notifications
 
 ---
 
 ## 📂 Project Status
 
-* ✅ Project initialized
-* 🚧 Backend development in progress
+- ✅ Project initialized
+- 🚧 Backend development in progress
 
 ---
 
