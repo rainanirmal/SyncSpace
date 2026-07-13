@@ -1,4 +1,44 @@
 import Mailgen from "mailgen";
+import nodemailer from "nodemailer";
+
+const sendEmail = async (options) => {
+
+    const mailGenerator = new Mailgen({
+        theme: "default",
+        product: {
+            name: "SyncSpace",
+            link: "https://syncspacelink.com"
+        }
+    });
+
+    const emailTextual = mailGenerator.generatePlaintext(options.mailgenContent); 
+
+    const emailHTML = mailGenerator.generate(options.mailgenContent); 
+
+    const transpoter = nodemailer.createTransport({
+        host: process.env.MAILTAP_SMTP_HOST,
+        port: process.env.MAILTAP_SMTP_PORT,
+        auth: {
+            user: process.env.MAILTAP_SMTP_USER,
+            pass: process.env.MAILTAP_SMTP_PASS
+        }
+    });
+
+    const mail = {
+        from: "mail.syncspacemanager@example.com",
+        to: options.email,
+        subject: options.subject,
+        text: emailTextual,
+        html: emailHTML
+    }
+
+    try {
+        await transpoter.sendMail(mail);
+    } catch (error) {
+        console.error("Email service failed silently !");
+        console.error("Error : " , error);
+    }
+}
 
 const emailVerificationMailgenContent = (username, verificationURL) => {
     return {
@@ -38,5 +78,6 @@ const forgotPasswordMailgenContent = (username, passwordResetURL) => {
 
 export {
     emailVerificationMailgenContent,
-    forgotPasswordMailgenContent
+    forgotPasswordMailgenContent,
+    sendMail
 };
