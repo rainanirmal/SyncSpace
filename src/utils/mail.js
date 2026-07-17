@@ -16,11 +16,11 @@ const sendEmail = async (options) => {
     const emailHTML = mailGenerator.generate(options.mailgenContent); 
 
     const transpoter = nodemailer.createTransport({
-        host: process.env.MAILTAP_SMTP_HOST,
-        port: process.env.MAILTAP_SMTP_PORT,
+        host: process.env.MAILTRAP_SMTP_HOST,
+        port: process.env.MAILTRAP_SMTP_PORT,
         auth: {
-            user: process.env.MAILTAP_SMTP_USER,
-            pass: process.env.MAILTAP_SMTP_PASS
+            user: process.env.MAILTRAP_SMTP_USER,
+            pass: process.env.MAILTRAP_SMTP_PASS
         }
     });
 
