@@ -72,7 +72,9 @@ const registerUser = asyncHandler(async (req, res) => {
         );
 });
 
-const login = asyncHandler(async(req, res) => {
+const login = asyncHandler(async (req, res) => {
+
+    // console.log(req.body);
 
     const{email, password} = req.body;
 
@@ -88,7 +90,7 @@ const login = asyncHandler(async(req, res) => {
 
     const isPasswordValid = await user.isPasswordCorrect(password);
 
-    if(!password) {
+    if(!isPasswordValid) {
         throw new ApiError(400, "Invalid credentials");
     }
 

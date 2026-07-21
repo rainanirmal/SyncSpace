@@ -7,7 +7,7 @@ const userRegisterValidator = () => {
             .notEmpty()
             .withMessage("Email is required")
             .isEmail()
-            .withMessage("Emaill is invalid"),
+            .withMessage("Email is invalid"),
         body("username")
             .trim()
             .notEmpty()
@@ -34,7 +34,7 @@ const userLoginValidator = () => {
             .isEmail()
             .withMessage("Email is invalid"),
         body("password")
-            .isEmpty()
+            .notEmpty()
             .withMessage("Password is required")
     ];
 }
