@@ -4,6 +4,7 @@ import { projectMember } from "../models/projectmember.models.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiResponse } from "../utils/api-response.js";
 import { ApiError } from "../utils/api-error.js";
+import mongoose, { mongo } from "mongoose";
 
 const getProjects = asyncHandler(async(req, res) => {
     //test
@@ -14,7 +15,19 @@ const getProjectById = asyncHandler(async(req, res) => {
 });
 
 const createProject = asyncHandler(async(req, res) => {
-    //test
+    
+    const { name, description } = req.body;
+
+    await project.create({
+        name,
+        description,
+        createdBy: new mongoose.Types.ObjectId(req.user._id)
+    });
+
+    await projectMember.create({
+        user: new mongoose.Types.ObjectId(req.user._id);
+        project: new mongoose.Types.ObjectId()
+    })
 });
 
 const updateProject = asyncHandler(async(req, res) => {
