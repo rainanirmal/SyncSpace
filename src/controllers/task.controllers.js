@@ -9,7 +9,26 @@ import mongoose from "mongoose";
 import { AvailableUserRoles, UserRolesEnum } from "../utils/constants.js";
 
 const getTasks = asyncHandler(async(req, res) => {
-    // test
+    
+    const { projectId } = req.params;
+
+    const project = await Project.findById(projectId);
+
+    if(!project) {
+        throw new ApiError(400, "Project not found !");
+    }
+
+    const tasks = await Task.find({
+        project: new mongoose.Types.ObjectId(projectId),
+    }).populate("assignedTo" , "avatar username fullName");
+
+    return res
+        .status(201)
+        .json(
+            201,
+            tasks,
+            "Tasks fetched successfully !"
+        );
 });
 
 const createTask = asyncHandler(async(req, res) => {
