@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../api/axios';
+import axiosClient from '../api/axiosClient';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -19,7 +19,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuth = async () => {
     try {
-      const response = await api.post('/auth/current-user');
+      const response = await axiosClient.post('/auth/current-user');
       if (response.data?.data) {
         setUser(response.data.data);
       }
@@ -35,19 +35,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await api.post('/auth/login', { email, password });
+    const response = await axiosClient.post('/auth/login', { email, password });
     if (response.data?.data?.user) {
       setUser(response.data.data.user);
     }
   };
 
   const register = async (username: string, email: string, password: string, fullName?: string) => {
-    await api.post('/auth/register', { username, email, password, fullName });
+    await axiosClient.post('/auth/register', { username, email, password, fullName });
   };
 
   const logout = async () => {
     try {
-      await api.post('/auth/logout');
+      await axiosClient.post('/auth/logout');
     } finally {
       setUser(null);
     }
