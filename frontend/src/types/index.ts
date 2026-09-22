@@ -1,3 +1,10 @@
+export interface ApiResponseEnvelope<T> {
+  statusCode: number;
+  data: T;
+  message: string;
+  success: boolean;
+}
+
 export interface User {
   _id: string;
   username: string;
@@ -5,6 +12,12 @@ export interface User {
   fullName?: string;
   avatar?: string;
   isEmailVerified: boolean;
+}
+
+export interface LoginResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
 }
 
 export interface Project {
@@ -17,11 +30,13 @@ export interface Project {
   updatedAt: string;
 }
 
+export type ProjectMemberRole = 'admin' | 'project_admin' | 'member';
+
 export interface ProjectMember {
   _id?: string;
   user: User;
   project: string;
-  role: 'ADMIN' | 'PROJECT_MANAGER' | 'MEMBER';
+  role: ProjectMemberRole | 'ADMIN' | 'PROJECT_MANAGER' | 'MEMBER';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -39,8 +54,9 @@ export interface Task {
   project: string;
   assignedTo?: User;
   assignedBy?: string;
-  status: 'TODO' | 'IN_PROGRESS' | 'UNDER_REVIEW' | 'COMPLETED';
+  status: string;
   attachments?: TaskAttachment[];
+  subtasks?: SubTask[];
   createdAt: string;
   updatedAt: string;
 }
@@ -53,4 +69,16 @@ export interface SubTask {
   createdBy: User;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UpdateTaskPayload {
+  title?: string;
+  description?: string;
+  assignedTo?: string;
+  status?: string;
+}
+
+export interface UpdateSubtaskPayload {
+  title?: string;
+  isCompleted?: boolean;
 }
