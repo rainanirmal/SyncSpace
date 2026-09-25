@@ -1,26 +1,50 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Layers, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { Layers, ArrowRight, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const successMessage = (location.state as { message?: string })?.message;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!email.trim()) {
+      setError('Email address is required.');
+      return;
+    }
+
+    if (!password) {
+      setError('Password is required.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      await login(email.trim(), password);
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid email or password');
+      setError(
+        err.response?.data?.message ||
+        err.message ||
+        'Login failed. Please check your credentials.'
+      );
     } finally {
       setLoading(false);
     }
@@ -28,7 +52,6 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background glow accents */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-violet-600/15 rounded-full blur-3xl pointer-events-none" />
 
@@ -40,6 +63,13 @@ export const Login: React.FC = () => {
           <h1 className="text-2xl font-bold text-white tracking-tight">Welcome to SyncSpace</h1>
           <p className="text-sm text-slate-400">Organize. Collaborate. Achieve.</p>
         </div>
+
+        {successMessage && (
+          <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <span>{successMessage}</span>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-center gap-2 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm">
@@ -70,6 +100,7 @@ export const Login: React.FC = () => {
             <input
               type="password"
               required
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"

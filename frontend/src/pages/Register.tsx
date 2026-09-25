@@ -10,19 +10,54 @@ export const Register: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
   const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const formattedUsername = username.trim().toLowerCase();
+
+    if (!formattedUsername) {
+      setError('Username is required.');
+      return;
+    }
+
+    if (formattedUsername.length < 3) {
+      setError('Username must be at least 3 characters long and in lowercase.');
+      return;
+    }
+
+    if (!email.trim()) {
+      setError('Email address is required.');
+      return;
+    }
+
+    if (!password) {
+      setError('Password is required.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await register(username.toLowerCase(), email, password, fullName);
-      navigate('/login', { state: { message: 'Account created! Please check your email or sign in.' } });
+      await register(formattedUsername, email.trim(), password, fullName.trim() || undefined);
+      navigate('/login', {
+        state: { message: 'Account created successfully! Please sign in to continue.' },
+      });
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Check your inputs.');
+      setError(
+        err.response?.data?.message ||
+        err.message ||
+        'Registration failed. Please check your inputs.'
+      );
     } finally {
       setLoading(false);
     }
@@ -51,13 +86,14 @@ export const Register: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Username
+              Username <span className="text-slate-500 font-normal">(lowercase, min 3 chars)</span>
             </label>
             <input
               type="text"
               required
+              minLength={3}
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value.toLowerCase())}
               placeholder="johndoe"
               className="w-full px-4 py-2.5 rounded-xl glass-input text-sm transition"
             />
@@ -65,7 +101,7 @@ export const Register: React.FC = () => {
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Full Name (Optional)
+              Full Name <span className="text-slate-500 font-normal">(Optional)</span>
             </label>
             <input
               type="text"
@@ -92,7 +128,7 @@ export const Register: React.FC = () => {
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Password
+              Password <span className="text-slate-500 font-normal">(min 8 chars)</span>
             </label>
             <input
               type="password"

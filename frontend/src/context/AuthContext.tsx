@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axiosClient from '../api/axiosClient';
+import { getCurrentUser, login as loginApi, logout as logoutApi, register as registerApi } from '../api/auth';
 import type { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
+  isAuthenticated: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string, fullName?: string) => Promise<void>;
@@ -19,9 +20,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuth = async () => {
     try {
-      const response = await axiosClient.post('/auth/current-user');
-      if (response.data?.data) {
-        setUser(response.data.data);
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        setUser(null);
       }
     } catch {
       setUser(null);
@@ -35,26 +38,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await axiosClient.post('/auth/login', { email, password });
-    if (response.data?.data?.user) {
-      setUser(response.data.data.user);
+    const data = await loginApi(email, password);
+    if (data?.user) {
+      setUser(data.user);
+    } else {
+      await checkAuth();
     }
   };
 
   const register = async (username: string, email: string, password: string, fullName?: string) => {
-    await axiosClient.post('/auth/register', { username, email, password, fullName });
+    await registerApi(email, username, password, fullName);
   };
 
   const logout = async () => {
     try {
-      await axiosClient.post('/auth/logout');
+      await logoutApi();
     } finally {
       setUser(null);
     }
   };
 
+  const isAuthenticated = Boolean(user);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, checkAuth }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        loading,
+        login,
+        register,
+        logout,
+        checkAuth,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
