@@ -19,6 +19,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { TaskDetailModal } from '../components/TaskDetailModal';
 
 export const ProjectDetails: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -30,6 +31,9 @@ export const ProjectDetails: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Task Detail Modal State
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // Add Member Modal State
   const [showMemberModal, setShowMemberModal] = useState(false);
@@ -387,6 +391,7 @@ export const ProjectDetails: React.FC = () => {
                         key={task._id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, task._id)}
+                        onClick={() => setSelectedTaskId(task._id)}
                         className="glass-card p-4 rounded-xl space-y-2 cursor-grab active:cursor-grabbing hover:border-indigo-500/40 transition group"
                       >
                         <h4 className="font-medium text-sm text-white group-hover:text-indigo-300 transition">
@@ -594,6 +599,15 @@ export const ProjectDetails: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+      {/* Task Detail & Subtasks Modal */}
+      {selectedTaskId && projectId && (
+        <TaskDetailModal
+          projectId={projectId}
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          onTaskUpdated={fetchProjectData}
+        />
       )}
     </div>
   );
