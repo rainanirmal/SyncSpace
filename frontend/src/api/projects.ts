@@ -1,9 +1,13 @@
 import axiosClient from './axiosClient';
 import type { ApiResponseEnvelope, Project, ProjectMember, ProjectMemberRole } from '../types';
 
-export const getProjects = async (): Promise<any[]> => {
+export const getProjects = async (): Promise<Project[]> => {
   const response = await axiosClient.get<ApiResponseEnvelope<any[]>>('/projects');
-  return response.data.data;
+  const data = response.data.data;
+  if (Array.isArray(data)) {
+    return data.map((item: any) => item.project || item);
+  }
+  return [];
 };
 
 export const createProject = async (

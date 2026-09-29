@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getProjectById, getMembers, addMember, deleteProject } from '../api/projects';
-import { getTasks, createTask, updateTask } from '../api/tasks';
-import type { Project, Task, ProjectMember, ProjectMemberRole } from '../types';
+import { useProjectQuery, useDeleteProjectMutation } from '../hooks/useProjects';
+import { useMembersQuery, useAddMemberMutation } from '../hooks/useMembers';
+import {
+  useTasksQuery,
+  useCreateTaskMutation,
+  useUpdateTaskStatusMutation,
+} from '../hooks/useTasks';
+import type { ProjectMemberRole } from '../types';
 import {
   ArrowLeft,
   Plus,
@@ -26,11 +31,22 @@ export const ProjectDetails: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [project, setProject] = useState<Project | null>(null);
-  const [members, setMembers] = useState<ProjectMember[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Queries
+  const {
+    data: project,
+    isLoading: loadingProject,
+    error: projectQueryError,
+  } = useProjectQuery(projectId);
+
+  const { data: members = [], isLoading: loadingMembers } = useMembersQuery(projectId);
+
+  const { data: tasks = [], isLoading: loadingTasks } = useTasksQuery(projectId);
+
+  // Mutations
+  const addMemberMutation = useAddMemberMutation();
+  const deleteProjectMutation = useDeleteProjectMutation();
+  const createTaskMutation = useCreateTaskMutation();
+  const updateTaskStatusMutation = useUpdateTaskStatusMutation();
 
   // Task Detail Modal State
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -39,7 +55,6 @@ export const ProjectDetails: React.FC = () => {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [memberEmail, setMemberEmail] = useState('');
   const [memberRole, setMemberRole] = useState<ProjectMemberRole>('member');
-  const [addingMember, setAddingMember] = useState(false);
   const [memberError, setMemberError] = useState<string | null>(null);
 
   // New Task Modal State
@@ -48,40 +63,18 @@ export const ProjectDetails: React.FC = () => {
   const [taskDesc, setTaskDesc] = useState('');
   const [taskAssignee, setTaskAssignee] = useState('');
   const [taskStatus, setTaskStatus] = useState<string>('todo');
-  const [creatingTask, setCreatingTask] = useState(false);
   const [taskError, setTaskError] = useState<string | null>(null);
 
-  // Deleting Project State
-  const [deletingProject, setDeletingProject] = useState(false);
-
-  const fetchProjectData = async () => {
-    if (!projectId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const [projData, membersData, tasksData] = await Promise.all([
-        getProjectById(projectId),
-        getMembers(projectId).catch(() => []),
-        getTasks(projectId).catch(() => []),
-      ]);
-
-      setProject(projData);
-      setMembers(Array.isArray(membersData) ? membersData : []);
-      setTasks(Array.isArray(tasksData) ? tasksData : []);
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to load project details.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProjectData();
-  }, [projectId]);
+  const loading = loadingProject || loadingMembers || loadingTasks;
+  const error = projectQueryError
+    ? (projectQueryError as any).response?.data?.message || (projectQueryError as Error).message
+    : null;
 
   // Determine if current user is admin in this project
   const currentMember = members.find(
-    (m) => (typeof m.user === 'object' && m.user?._id === user?._id) || (m.user as any) === user?._id
+    (m) =>
+      (typeof m.user === 'object' && m.user?._id === user?._id) ||
+      (m.user as any) === user?._id
   );
   const roleLower = String(currentMember?.role || '').toLowerCase();
   const isAdmin =
@@ -93,21 +86,19 @@ export const ProjectDetails: React.FC = () => {
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectId || !memberEmail.trim()) return;
-    setAddingMember(true);
     setMemberError(null);
 
     try {
-      await addMember(projectId, memberEmail.trim(), memberRole);
+      await addMemberMutation.mutateAsync({
+        projectId,
+        email: memberEmail.trim(),
+        role: memberRole,
+      });
       setMemberEmail('');
       setMemberRole('member');
       setShowMemberModal(false);
-      // Refresh members list
-      const updatedMembers = await getMembers(projectId);
-      setMembers(updatedMembers);
     } catch (err: any) {
       setMemberError(err.response?.data?.message || err.message || 'Failed to add member to project.');
-    } finally {
-      setAddingMember(false);
     }
   };
 
@@ -115,54 +106,45 @@ export const ProjectDetails: React.FC = () => {
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectId || !taskTitle.trim()) return;
-    setCreatingTask(true);
     setTaskError(null);
 
     try {
-      const newTask = await createTask(
+      await createTaskMutation.mutateAsync({
         projectId,
-        taskTitle.trim(),
-        taskDesc.trim() || undefined,
-        taskAssignee || undefined,
-        taskStatus
-      );
+        title: taskTitle.trim(),
+        description: taskDesc.trim() || undefined,
+        assignedTo: taskAssignee || undefined,
+        status: taskStatus,
+      });
       setTaskTitle('');
       setTaskDesc('');
       setTaskAssignee('');
       setTaskStatus('todo');
       setShowTaskModal(false);
-
-      if (newTask) {
-        setTasks((prev) => [newTask, ...prev]);
-      } else {
-        const updatedTasks = await getTasks(projectId);
-        setTasks(updatedTasks);
-      }
     } catch (err: any) {
       setTaskError(err.response?.data?.message || err.message || 'Failed to create task.');
-    } finally {
-      setCreatingTask(false);
     }
   };
 
   // Delete Project Handler (Admin only)
   const handleDeleteProject = async () => {
     if (!projectId || !isAdmin) return;
-    if (!window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
+    if (
+      !window.confirm(
+        'Are you sure you want to delete this project? This action cannot be undone.'
+      )
+    ) {
       return;
     }
-    setDeletingProject(true);
     try {
-      await deleteProject(projectId);
+      await deleteProjectMutation.mutateAsync(projectId);
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to delete project.');
-    } finally {
-      setDeletingProject(false);
     }
   };
 
-  // Drag and Drop Handlers
+  // Drag and Drop Handlers with Optimistic Updates & Rollback
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('taskId', taskId);
   };
@@ -171,24 +153,17 @@ export const ProjectDetails: React.FC = () => {
     e.preventDefault();
   };
 
-  const handleDrop = async (e: React.DragEvent, targetStatus: string) => {
+  const handleDrop = (e: React.DragEvent, targetStatus: string) => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData('taskId');
     if (!taskId || !projectId) return;
 
-    // Optimistically update status
-    setTasks((prevTasks) =>
-      prevTasks.map((t) => (t._id === taskId ? { ...t, status: targetStatus } : t))
-    );
-
-    try {
-      await updateTask(projectId, taskId, { status: targetStatus });
-    } catch (err) {
-      console.error('Failed to update task status', err);
-      // Revert on failure
-      const revertedTasks = await getTasks(projectId);
-      setTasks(revertedTasks);
-    }
+    // Optimistically updates task status via TanStack Query mutation
+    updateTaskStatusMutation.mutate({
+      projectId,
+      taskId,
+      status: targetStatus,
+    });
   };
 
   const columns = [
@@ -240,10 +215,10 @@ export const ProjectDetails: React.FC = () => {
         {isAdmin && (
           <button
             onClick={handleDeleteProject}
-            disabled={deletingProject}
+            disabled={deleteProjectMutation.isPending}
             className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-xs font-medium rounded-xl transition disabled:opacity-50"
           >
-            {deletingProject ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            {deleteProjectMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
             <span>Delete Project</span>
           </button>
         )}
@@ -483,10 +458,10 @@ export const ProjectDetails: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={addingMember}
+                  disabled={addMemberMutation.isPending}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center gap-2 disabled:opacity-50"
                 >
-                  {addingMember ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Member'}
+                  {addMemberMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Member'}
                 </button>
               </div>
             </form>
@@ -590,10 +565,10 @@ export const ProjectDetails: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={creatingTask}
+                  disabled={createTaskMutation.isPending}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center gap-2 disabled:opacity-50"
                 >
-                  {creatingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Task'}
+                  {createTaskMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Task'}
                 </button>
               </div>
             </form>
@@ -606,7 +581,6 @@ export const ProjectDetails: React.FC = () => {
           projectId={projectId}
           taskId={selectedTaskId}
           onClose={() => setSelectedTaskId(null)}
-          onTaskUpdated={fetchProjectData}
         />
       )}
     </div>

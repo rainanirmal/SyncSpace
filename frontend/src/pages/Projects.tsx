@@ -1,51 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../api/axios';
-import type { Project } from '../types';
+import { useProjectsQuery, useCreateProjectMutation } from '../hooks/useProjects';
 import { FolderKanban, Plus, Search, Loader2, X } from 'lucide-react';
 
 export const Projects: React.FC = () => {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: projects = [], isLoading: loading } = useProjectsQuery();
+  const createProjectMutation = useCreateProjectMutation();
+
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [creating, setCreating] = useState(false);
-
-  const fetchProjects = async () => {
-    try {
-      const response = await api.get('/projects');
-      if (response.data?.data) {
-        const list = response.data.data.map((item: any) => item.project || item);
-        setProjects(list);
-      }
-    } catch (err) {
-      console.error('Failed to load projects', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProjects();
-  }, []);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    setCreating(true);
 
     try {
-      await api.post('/projects', { name, description });
+      await createProjectMutation.mutateAsync({
+        name: name.trim(),
+        description: description.trim() || undefined,
+      });
       setName('');
       setDescription('');
       setShowModal(false);
-      fetchProjects();
     } catch (err) {
       console.error('Error creating project', err);
-    } finally {
-      setCreating(false);
     }
   };
 
@@ -173,10 +153,10 @@ export const Projects: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={creating}
+                  disabled={createProjectMutation.isPending}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center gap-2 disabled:opacity-50"
                 >
-                  {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Project'}
+                  {createProjectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Project'}
                 </button>
               </div>
             </form>

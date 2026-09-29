@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { getTaskById, createSubtask, updateSubtask, deleteSubtask } from '../api/tasks';
-import type { Task, SubTask } from '../types';
+import React, { useState } from 'react';
+import {
+  useTaskQuery,
+  useToggleSubtaskMutation,
+  useCreateSubtaskMutation,
+  useDeleteSubtaskMutation,
+} from '../hooks/useTasks';
 import {
   X,
   Loader2,
@@ -28,117 +32,109 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   projectId,
   taskId,
   onClose,
-  onTaskUpdated,
 }) => {
-  const [task, setTask] = useState<Task | null>(null);
-  const [subtasks, setSubtasks] = useState<SubTask[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: task,
+    isLoading: loading,
+    error: queryError,
+  } = useTaskQuery(projectId, taskId);
 
-  // New subtask state
+  const toggleSubtaskMutation = useToggleSubtaskMutation();
+  const createSubtaskMutation = useCreateSubtaskMutation();
+  const deleteSubtaskMutation = useDeleteSubtaskMutation();
+
+  // New subtask input state
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-  const [addingSubtask, setAddingSubtask] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!taskId || !projectId) return;
-
-    const fetchTask = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getTaskById(projectId, taskId);
-        setTask(data);
-        setSubtasks(Array.isArray(data?.subtasks) ? data.subtasks : []);
-      } catch (err: any) {
-        setError(err.response?.data?.message || err.message || 'Failed to fetch task details.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTask();
-  }, [projectId, taskId]);
 
   if (!taskId) return null;
 
-  // Subtask completion toggle
-  const handleToggleSubtask = async (subTaskId: string, currentCompleted: boolean) => {
+  const subtasks = task?.subtasks || [];
+  const error = queryError
+    ? (queryError as any).response?.data?.message || (queryError as Error).message
+    : null;
+
+  // Subtask completion toggle with TanStack Query Optimistic Update & Rollback
+  const handleToggleSubtask = (subTaskId: string, currentCompleted: boolean) => {
     setActionError(null);
     const targetCompleted = !currentCompleted;
 
-    // Optimistic update
-    setSubtasks((prev) =>
-      prev.map((s) => (s._id === subTaskId ? { ...s, isCompleted: targetCompleted } : s))
+    toggleSubtaskMutation.mutate(
+      {
+        projectId,
+        taskId,
+        subTaskId,
+        isCompleted: targetCompleted,
+      },
+      {
+        onError: (err: any) => {
+          setActionError(err.response?.data?.message || err.message || 'Failed to update subtask.');
+        },
+      }
     );
-
-    try {
-      await updateSubtask(projectId, subTaskId, { isCompleted: targetCompleted });
-      if (onTaskUpdated) onTaskUpdated();
-    } catch (err: any) {
-      // Revert on error
-      setSubtasks((prev) =>
-        prev.map((s) => (s._id === subTaskId ? { ...s, isCompleted: currentCompleted } : s))
-      );
-      setActionError(err.response?.data?.message || 'Failed to update subtask.');
-    }
   };
 
   // Create Subtask
   const handleAddSubtask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubtaskTitle.trim() || !taskId) return;
-    setAddingSubtask(true);
     setActionError(null);
 
     try {
-      const created = await createSubtask(projectId, taskId, newSubtaskTitle.trim());
+      await createSubtaskMutation.mutateAsync({
+        projectId,
+        taskId,
+        title: newSubtaskTitle.trim(),
+      });
       setNewSubtaskTitle('');
-      if (created) {
-        setSubtasks((prev) => [...prev, created]);
-      } else {
-        // Refresh task if payload structure differs
-        const refreshed = await getTaskById(projectId, taskId);
-        setSubtasks(Array.isArray(refreshed?.subtasks) ? refreshed.subtasks : []);
-      }
-      if (onTaskUpdated) onTaskUpdated();
     } catch (err: any) {
-      setActionError(err.response?.data?.message || 'Failed to add subtask.');
-    } finally {
-      setAddingSubtask(false);
+      setActionError(err.response?.data?.message || err.message || 'Failed to add subtask.');
     }
   };
 
   // Delete Subtask
   const handleDeleteSubtask = async (subTaskId: string) => {
     setActionError(null);
-    // Optimistic deletion
-    setSubtasks((prev) => prev.filter((s) => s._id !== subTaskId));
-
     try {
-      await deleteSubtask(projectId, subTaskId);
-      if (onTaskUpdated) onTaskUpdated();
+      await deleteSubtaskMutation.mutateAsync({
+        projectId,
+        taskId,
+        subTaskId,
+      });
     } catch (err: any) {
-      // Refresh on error
-      if (taskId) {
-        const refreshed = await getTaskById(projectId, taskId);
-        setSubtasks(Array.isArray(refreshed?.subtasks) ? refreshed.subtasks : []);
-      }
-      setActionError(err.response?.data?.message || 'Failed to delete subtask.');
+      setActionError(err.response?.data?.message || err.message || 'Failed to delete subtask.');
     }
   };
 
   const completedCount = subtasks.filter((s) => s.isCompleted).length;
-  const progressPercent = subtasks.length > 0 ? Math.round((completedCount / subtasks.length) * 100) : 0;
+  const progressPercent =
+    subtasks.length > 0 ? Math.round((completedCount / subtasks.length) * 100) : 0;
 
   const normalizeStatusDisplay = (status?: string) => {
     const s = (status || '').toLowerCase();
-    if (s === 'todo') return { label: 'To Do', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20', icon: CircleDot };
+    if (s === 'todo')
+      return {
+        label: 'To Do',
+        color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+        icon: CircleDot,
+      };
     if (s === 'in_progress' || s === 'inprogress' || s === 'under_review')
-      return { label: 'In Progress', color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20', icon: Clock };
+      return {
+        label: 'In Progress',
+        color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+        icon: Clock,
+      };
     if (s === 'done' || s === 'completed')
-      return { label: 'Done', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', icon: CheckCircle2 };
-    return { label: 'To Do', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20', icon: CircleDot };
+      return {
+        label: 'Done',
+        color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+        icon: CheckCircle2,
+      };
+    return {
+      label: 'To Do',
+      color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+      icon: CircleDot,
+    };
   };
 
   const statusInfo = normalizeStatusDisplay(task?.status);
@@ -309,6 +305,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <button
                         type="button"
                         onClick={() => handleDeleteSubtask(st._id)}
+                        disabled={deleteSubtaskMutation.isPending}
                         className="text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-rose-500/10 transition opacity-80 group-hover:opacity-100"
                         title="Delete subtask"
                       >
@@ -331,10 +328,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 />
                 <button
                   type="submit"
-                  disabled={addingSubtask || !newSubtaskTitle.trim()}
+                  disabled={createSubtaskMutation.isPending || !newSubtaskTitle.trim()}
                   className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl transition flex items-center gap-1.5 disabled:opacity-50 flex-shrink-0"
                 >
-                  {addingSubtask ? (
+                  {createSubtaskMutation.isPending ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
                     <>

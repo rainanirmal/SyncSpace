@@ -1,44 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getProjects, createProject } from '../api/projects';
-import type { Project } from '../types';
+import { useProjectsQuery, useCreateProjectMutation } from '../hooks/useProjects';
 import { FolderKanban, CheckCircle2, Clock, Plus, Loader2, AlertCircle, RefreshCw, X, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: projects = [], isLoading: loading, error: queryError, refetch } = useProjectsQuery();
+  const createProjectMutation = useCreateProjectMutation();
 
   // New project modal state
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
-  const fetchProjects = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getProjects();
-      if (Array.isArray(data)) {
-        const list = data.map((item: any) => item.project || item);
-        setProjects(list);
-      } else {
-        setProjects([]);
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to load projects. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProjects();
-  }, []);
+  const error = queryError ? (queryError as any).response?.data?.message || (queryError as Error).message || 'Failed to load projects.' : null;
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,23 +23,18 @@ export const Dashboard: React.FC = () => {
       setModalError('Project name is required.');
       return;
     }
-    setSubmitting(true);
     setModalError(null);
 
     try {
-      const newProj = await createProject(name.trim(), description.trim() || undefined);
+      await createProjectMutation.mutateAsync({
+        name: name.trim(),
+        description: description.trim() || undefined,
+      });
       setName('');
       setDescription('');
       setShowModal(false);
-      if (newProj) {
-        setProjects((prev) => [newProj, ...prev]);
-      } else {
-        fetchProjects();
-      }
     } catch (err: any) {
       setModalError(err.response?.data?.message || err.message || 'Failed to create project.');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -144,7 +116,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <p className="text-sm font-medium text-rose-300">{error}</p>
             <button
-              onClick={fetchProjects}
+              onClick={() => refetch()}
               className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium transition"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -270,10 +242,10 @@ export const Dashboard: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={createProjectMutation.isPending}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center gap-2 disabled:opacity-50"
                 >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Project'}
+                  {createProjectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Project'}
                 </button>
               </div>
             </form>
